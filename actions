@@ -1,0 +1,56 @@
+import sys  # sys нужен для передачи argv в QApplication
+
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QTimer
+
+import EndFile
+
+from DocDevice import Drive
+
+
+class ExampleApp(QtWidgets.QMainWindow, EndFile.Ui_MainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setupUi(self)  # Это нужно для инициализации нашего дизайна
+
+        self.driver = Drive()
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_coordinate)
+        self.timer.start(500)
+
+        self.button_go.clicked.connect(self.start_moving)
+
+        self.button_start_stop.clicked.connect(self.on_off)
+
+    def update_coordinate(self):
+        self.current_coordinate.display(str(self.driver.encoder_position))
+
+    def start_moving(self):
+        coordinate = self.lineEdit_coord.text()
+        if coordinate:
+            self.driver.move_to_position(int(coordinate))
+        else:
+            self.lineEdit_coord.setText("Не введена координата")
+
+    def on_off(self):
+        if self.button_start_stop.text() == 'START':
+            self.driver.turn_on()
+            self.button_start_stop.setText('STOP')
+            self.button_start_stop.setStyleSheet('background-color: green')
+        else:
+            self.driver.switch_off()
+            self.button_start_stop.setText('START')
+            self.button_start_stop.setStyleSheet('background-color: red')
+
+
+def main():
+    app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
+    window = ExampleApp()  # Создаём объект класса ExampleApp
+    window.show()  # Показываем окно
+    app.exec()  # и запускаем приложение
+
+
+if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем
+    main()
