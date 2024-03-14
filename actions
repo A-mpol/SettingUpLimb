@@ -1,6 +1,6 @@
 import sys  # sys нужен для передачи argv в QApplication
 
-from PyQt6 import QtWidgets
+from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import QTimer
 
 import EndFile
@@ -16,9 +16,13 @@ class ExampleApp(QtWidgets.QMainWindow, EndFile.Ui_MainWindow):
 
         self.driver = Drive()
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_coordinate)
-        self.timer.start(500)
+        self.timer_cur_coord = QTimer(self)
+        self.timer_cur_coord.timeout.connect(self.update_coordinate)
+        self.timer_cur_coord.start(500)
+
+        self.timer_in_pos = QTimer(self)
+        self.timer_in_pos.timeout.connect(self.update_status)
+        self.timer_in_pos.start(200)
 
         self.button_go.clicked.connect(self.start_moving)
 
@@ -38,11 +42,21 @@ class ExampleApp(QtWidgets.QMainWindow, EndFile.Ui_MainWindow):
         if self.button_start_stop.text() == 'START':
             self.driver.turn_on()
             self.button_start_stop.setText('STOP')
-            self.button_start_stop.setStyleSheet('background-color: green')
+            self.button_start_stop.setStyleSheet('background-color: red')
+
         else:
             self.driver.switch_off()
             self.button_start_stop.setText('START')
-            self.button_start_stop.setStyleSheet('background-color: red')
+            self.button_start_stop.setStyleSheet('background-color: green')
+
+    def update_status(self):
+        _translate = QtCore.QCoreApplication.translate
+        if self.driver.in_position:
+            self.label_coord_ready.setText(_translate("MainWindow",
+                                                      "<html><head/><body><p><span style=\" font-size:12pt; font-weight:700;\">Привод находится в позиции</span></p></body></html>"))
+        else:
+            self.label_coord_ready.setText(_translate("MainWindow",
+                                                      "<html><head/><body><p><span style=\" font-size:12pt; font-weight:700;\">Привод вышел из позиции</span></p></body></html>"))
 
 
 def main():
