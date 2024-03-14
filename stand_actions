@@ -1,0 +1,53 @@
+from DocDevice import Drive
+from WorkWithOpenCV import Shot
+
+import cv2
+
+
+class Stand:
+    def __init__(self, camera):
+        self.servo_motor = Drive()
+        self.video = cv2.VideoCapture(camera)
+        self.image = None
+        self.center_circle_coordinate = None
+        self.start_position = None
+        self.measurements = []
+
+    def get_image_from_video(self):
+        success, image = self.video.read()
+        if success:
+            self.image = Shot(image)
+
+    def engine_rotation_start(self):
+        self.servo_motor.turn_on()
+
+    def engine_rotation_stop(self):
+        self.servo_motor.switch_off()
+
+    def current_engine_position(self):
+        return self.servo_motor.encoder_position
+
+    def get_center_circle_coordinate(self):
+        if self.image:
+            y = self.image.get_y_coordinate()
+            self.measurements.append(y)
+            return y
+        return False
+
+    def deviation_display(self, y, color):
+        img_copy = self.image.copy()
+        cv2.line(img_copy, self.image.x, y, color, 2, -1)
+        return img_copy
+
+    def setting_drive_to_positive_extreme(self, extreme):
+        self.servo_motor.move_to_position(extreme)
+
+    def coordinate_processing(self):
+        self.measurements = sorted(list(set(self.measurements)))
+        maximum = 0
+        for j in range(len(self.measurements) - 1, 1, -1):
+            if self.measurements[j] - self.measurements[j - 1] < 6 \
+                    and self.measurements[j - 1] - self.measurements[j - 2] < 6:
+                maximum = self.measurements[j]
+                break
+        return maximum
