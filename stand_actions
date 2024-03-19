@@ -9,14 +9,14 @@ class Stand:
         self.servo_motor = Drive()
         self.video = cv2.VideoCapture(camera)
         self.image = None
-        self.center_circle_coordinate = None
-        self.start_position = None
         self.measurements = []
 
     def get_image_from_video(self):
         success, image = self.video.read()
         if success:
             self.image = Shot(image)
+            return image
+        return []
 
     def engine_rotation_start(self):
         self.servo_motor.turn_on()
@@ -31,12 +31,10 @@ class Stand:
         if self.image:
             y = self.image.get_y_coordinate()
             self.measurements.append(y)
-            return y
-        return False
 
-    def deviation_display(self, y, color):
-        img_copy = self.image.copy()
-        cv2.line(img_copy, self.image.x, y, color, 2, -1)
+    def deviation_display(self, y, color, image):
+        img_copy = image.copy()
+        cv2.circle(img_copy, (self.image.x, y), 2, color, 2, -1)
         return img_copy
 
     def setting_drive_to_positive_extreme(self, extreme):
@@ -51,3 +49,4 @@ class Stand:
                 maximum = self.measurements[j]
                 break
         return maximum
+
