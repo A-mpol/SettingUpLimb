@@ -10,6 +10,7 @@ class Stand:
         self.video = cv2.VideoCapture(camera)
         self.image = None
         self.measurements = []
+        self.impulses = self.impulses_in_circulation("info.txt")
 
     def get_image_from_video(self):
         success, image = self.video.read()
@@ -49,4 +50,16 @@ class Stand:
                 maximum = self.measurements[j]
                 break
         return maximum
+
+    def impulses_in_circulation(self, filepath):
+        try:
+            with open(filepath, 'r') as file:
+                for line in file:
+                    if "Number of pulses per revolution" in line:
+                        oborot = int(line.split(":")[-1])
+                        return oborot
+
+        except:
+            print("Файл не найден")
+            return 20000
 
