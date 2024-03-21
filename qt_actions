@@ -8,7 +8,7 @@ from PyQt6.QtGui import QImage, QPixmap
 import CheckFile
 import WorkingFile
 
-from project_end import Stand
+from DocStand import Stand
 
 import cv2
 
@@ -21,6 +21,8 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
 
         self.stand = stand
 
+        self.limb_is_centered = False
+
         self.cur_image = QLabel(self)
         self.cur_image.setGeometry(10, 120, 1100, 550)
 
@@ -32,11 +34,12 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
         self.timer_in_pos.timeout.connect(self.update_status)
         self.timer_in_pos.start(200)
 
-        self.timer_get_image = QTimer(self)
-        self.timer_get_image.timeout.connect(self.update_image)
-        self.timer_get_image.start(10)
+        # self.timer_get_image = QTimer(self)
+        # self.timer_get_image.timeout.connect(self.update_image)
+        # self.timer_get_image.start(100)
 
         self.button_start_stop.clicked.connect(self.start_stop)
+        self.button_setting_up.clicked.connect(self.setting_up)
 
     def update_coordinate(self):
         self.lcdNumber_cur_coordinate.display(str(self.stand.current_engine_position()))
@@ -69,7 +72,18 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
             img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
             pixmap = QPixmap.fromImage(img)
             self.cur_image.setPixmap(pixmap)
+            cv2.waitKey(0)
             self.cur_image.setScaledContents(True)
+
+    def setting_up(self):
+        self.stand.setting_drive_to_positive_extreme(0)
+        while not self.stand.servo_motor.in_position:
+            pass
+        self.stand.measurements = []
+        self.limb_is_centered = True
+        self.stand.setting_drive_to_positive_extreme(40000)
+        while not self.stand.servo_motor.in_position:
+            self.update_image()
 
 
 class CheckWindow(QtWidgets.QMainWindow, CheckFile.Ui_MainWindow):
