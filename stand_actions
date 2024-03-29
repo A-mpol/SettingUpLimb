@@ -47,14 +47,15 @@ class Stand:
         mes = sorted(list(set(self.measurements)))
         maximum = 0
         minimum = 0
+        unacceptable_difference = 6
         for i in range(1, len(self.measurements) - 2):
-            if self.measurements[i] - self.measurements[i - 1] < 6 \
-                    and self.measurements[i + 1] - self.measurements[i] < 6:
+            if self.measurements[i] - self.measurements[i - 1] < unacceptable_difference \
+                    and self.measurements[i + 1] - self.measurements[i] < unacceptable_difference:
                 minimum = self.measurements[i - 1]
                 break
         for j in range(len(mes) - 1, 1, -1):
-            if mes[j] - mes[j - 1] < 6 \
-                    and mes[j - 1] - mes[j - 2] < 6:
+            if mes[j] - mes[j - 1] < unacceptable_difference \
+                    and mes[j - 1] - mes[j - 2] < unacceptable_difference:
                 maximum = mes[j]
                 break
 
