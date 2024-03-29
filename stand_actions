@@ -10,6 +10,7 @@ class Stand:
         self.video = cv2.VideoCapture(camera)
         self.image = None
         self.measurements = []
+        self.pos_mes = []
         self.impulses = self.impulses_in_circulation("info.txt")
 
     def get_image_from_video(self):
@@ -29,6 +30,7 @@ class Stand:
         return self.servo_motor.encoder_position
 
     def get_center_circle_coordinate(self):
+        self.pos_mes.append(self.servo_motor.encoder_position)
         if self.image:
             y = self.image.get_y_coordinate()
             self.measurements.append(y)
@@ -42,14 +44,27 @@ class Stand:
         self.servo_motor.move_to_position(extreme)
 
     def coordinate_processing(self):
-        self.measurements = sorted(list(set(self.measurements)))
+        mes = sorted(list(set(self.measurements)))
         maximum = 0
-        for j in range(len(self.measurements) - 1, 1, -1):
-            if self.measurements[j] - self.measurements[j - 1] < 6 \
-                    and self.measurements[j - 1] - self.measurements[j - 2] < 6:
-                maximum = self.measurements[j]
+        minimum = 0
+        for i in range(1, len(self.measurements) - 2):
+            if self.measurements[i] - self.measurements[i - 1] < 6 \
+                    and self.measurements[i + 1] - self.measurements[i] < 6:
+                minimum = self.measurements[i - 1]
                 break
-        return maximum
+        for j in range(len(mes) - 1, 1, -1):
+            if mes[j] - mes[j - 1] < 6 \
+                    and mes[j - 1] - mes[j - 2] < 6:
+                maximum = mes[j]
+                break
+
+        summ = 0
+        for i in range(len(self.measurements)):
+            if self.measurements[i] == maximum:
+                summ += self.pos_mes[i]
+        encoder_pos = summ // len(self.pos_mes)
+        y = (minimum + maximum) // 2
+        return encoder_pos, y
 
     def impulses_in_circulation(self, filepath):
         try:
