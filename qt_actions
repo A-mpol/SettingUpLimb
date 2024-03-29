@@ -12,6 +12,10 @@ from DocStand import Stand
 
 import cv2
 
+import matplotlib.pyplot as plt
+
+import time
+
 
 class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
     def __init__(self, stand):
@@ -34,12 +38,14 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
         self.timer_in_pos.timeout.connect(self.update_status)
         self.timer_in_pos.start(200)
 
-        # self.timer_get_image = QTimer(self)
-        # self.timer_get_image.timeout.connect(self.update_image)
-        # self.timer_get_image.start(100)
+        self.timer_get_image = QTimer(self)
+        self.timer_get_image.timeout.connect(self.update_image)
+        self.timer_get_image.start(100)
 
         self.button_start_stop.clicked.connect(self.start_stop)
         self.button_setting_up.clicked.connect(self.setting_up)
+
+        self.y = None
 
     def update_coordinate(self):
         self.lcdNumber_cur_coordinate.display(str(self.stand.current_engine_position()))
@@ -67,6 +73,8 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
         if len(frame) != 0:
             self.stand.get_center_circle_coordinate()
             frame = self.stand.deviation_display(self.stand.measurements[-1], (0, 255, 255), frame)
+            if self.y != None:
+                frame = self.stand.deviation_display(self.y, (255, 0, 255), frame)
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = frame_rgb.shape
             img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
@@ -76,14 +84,37 @@ class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
             self.cur_image.setScaledContents(True)
 
     def setting_up(self):
-        self.stand.setting_drive_to_positive_extreme(0)
-        while not self.stand.servo_motor.in_position:
-            pass
-        self.stand.measurements = []
-        self.limb_is_centered = True
-        self.stand.setting_drive_to_positive_extreme(40000)
-        while not self.stand.servo_motor.in_position:
-            self.update_image()
+        if self.button_setting_up.text() == 'ОТЦЕНТРОВАТЬ ЛИМБ':
+            self.y = None
+            self.button_setting_up.setText('ВЫЙТИ В МАКСИМУМ')
+            self.timer_get_image.stop()
+            self.stand.setting_drive_to_positive_extreme(0)
+            while not self.stand.servo_motor.in_position:
+                self.update_coordinate()
+            self.stand.measurements = []
+            self.stand.pos_mes = []
+            self.stand.setting_drive_to_positive_extreme(self.stand.impulses)
+            while not self.stand.servo_motor.in_position:
+                self.update_image()
+                self.update_coordinate()
+
+            plt.plot(self.stand.pos_mes, self.stand.measurements)
+            plt.xlabel('Позиция')
+            plt.ylabel('Координата')
+            plt.title('График значений Y относительно позиции')
+            plt.show()
+
+            self.timer_get_image.start(100)
+        else:
+            self.button_setting_up.setText('ОТЦЕНТРОВАТЬ ЛИМБ')
+            pos, self.y = self.stand.coordinate_processing()
+            self.label_max_pose.setText("Максимум: " + str(pos))
+            self.stand.setting_drive_to_positive_extreme(pos)
+            self.button_setting_up.setEnabled(False)
+            while not self.stand.servo_motor.in_position:
+                self.update_image()
+                self.update_coordinate()
+            self.button_setting_up.setEnabled(True)
 
 
 class CheckWindow(QtWidgets.QMainWindow, CheckFile.Ui_MainWindow):
