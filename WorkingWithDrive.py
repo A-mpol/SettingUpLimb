@@ -3,19 +3,26 @@ from pymodbus import Framer, ModbusException
 
 
 class Drive:
-    def __init__(self):
+    def __init__(self, port="COM6", framer=Framer.ASCII, baudrate=57600, bytesize=8, parity="O", stopbits=1):
         self.client = ModbusClient.ModbusSerialClient(
-            port="COM6",
-            framer=Framer.ASCII,
-            baudrate=57600,
-            bytesize=8,
-            parity="O",
-            stopbits=1,
+            port,
+            framer,
+            baudrate,
+            bytesize,
+            parity,
+            stopbits,
+            strict=False
         )
 
         self.position = 0
 
-        self.client.connect()
+    def connection(self):
+        if self.client.connected:
+            return True
+        try:
+            self.client.connect()
+        except:
+            return False
 
     def turn_on(self):
         rr = self.client.read_holding_registers(508, 1, slave=1)
@@ -27,11 +34,11 @@ class Drive:
 
     @property
     def encoder_position(self):
-        result = ""
+        result = 0
         try:
             rr = self.client.read_holding_registers(1923, 2, slave=1)
-            self.position = rr.registers[0]
-            result = str(self.position)
+            self.position = (rr.registers[1] << 16) + rr.registers[0]
+            result = self.position
         except ModbusException as exc:
             print(f"Received ModbusException({exc}) from library")
         return result
@@ -58,11 +65,9 @@ class Drive:
             tmp = ~tmp
             register = register & tmp
 
-        rr = self.client.write_register(508, register, 1)
+        self.client.write_register(508, register, 1)
 
     def move_to_position(self, position):
-        while not self.in_position:
-            pass
         self.__set_position(position)
         self.__go_to_position()
 
@@ -70,3 +75,5 @@ class Drive:
     def in_position(self):
         rr = self.client.read_holding_registers(1549, 1, slave=1)
         return rr.registers[0] == 11
+
+
