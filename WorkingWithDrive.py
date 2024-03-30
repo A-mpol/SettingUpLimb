@@ -76,4 +76,5 @@ class Drive:
         rr = self.client.read_holding_registers(1549, 1, slave=1)
         return rr.registers[0] == 11
 
-
+    def change_speed(self, speed):
+        self.client.write_register(733, speed, 1)
