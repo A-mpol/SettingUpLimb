@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 
-from DocDevice import Drive
-
 import matplotlib.pyplot as plt
 
 import time
@@ -11,10 +9,8 @@ import time
 class Stand:
     def __init__(self, camera):
         self.video = cv2.VideoCapture(camera)
-        self.encoder = Drive()
 
         self.measurements = []
-        self.encoder_positions = []
 
     def get_image(self):
         success, image = self.video.read()
@@ -79,15 +75,8 @@ class Stand:
                 maximum = mes[j]
                 break
 
-        summ = 0
-        count = 0
-        for i in range(len(self.measurements)):
-            if self.measurements[i] == maximum:
-                summ += self.encoder_positions[i]
-                count += 1
-        maximum_position = summ // count
         y = (minimum + maximum) // 2
-        return maximum_position, y
+        return y
 
     def normal_state(self):
         image = self.get_image()
@@ -101,14 +90,12 @@ class Stand:
         return ["y not found"]
 
     def data_collection_state(self):
-        encoder_position = self.encoder.encoder_position
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
         if y:
-            self.encoder_positions.append(encoder_position)
             self.measurements.append(y)
             image_with_point = self.draw_point(image, y)
             return image_with_point
@@ -125,3 +112,17 @@ class Stand:
             image_with_line_and_point = self.draw_point(image_with_line, y)
             return image_with_line_and_point
         return ["y not found"]
+
+
+stand = Stand("Video2.mp4")
+for _ in range(1000):
+    img = stand.normal_state()
+    if len(img) == 1:
+        continue
+    if len(img) == 0:
+        break
+    cv2.imshow("video", img)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+stand.video.release()
+cv2.destroyAllWindows()
