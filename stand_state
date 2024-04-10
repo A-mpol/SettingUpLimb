@@ -43,7 +43,10 @@ class Stand:
             cv2.imshow("image", clone)
             key = cv2.waitKey(1) & 0xFF
 
-            if key == ord("c"):
+            if key == ord("r"):
+                clone = image.copy()
+
+            elif key == ord("c"):
                 break
 
         cv2.destroyAllWindows()
@@ -65,7 +68,7 @@ class Stand:
         return img_contours
 
     def get_y_coordinate(self, bw_image):
-        x = self.border1[0]
+        x = (self.border1[0] + self.border2[0]) // 2
 
         for y in range(self.border1[1], self.border2[1]):
             pixel = bw_image[y][x]
@@ -83,7 +86,7 @@ class Stand:
         return False
 
     def draw_point(self, image, y):
-        x = self.border1[0]
+        x = (self.border1[0] + self.border2[0]) // 2
         img_copy = image.copy()
         cv2.circle(img_copy, (x, y), 2, (0, 255, 0), -1)
         return img_copy
@@ -149,16 +152,29 @@ class Stand:
             return image_with_line_and_point
         return ["y not found"]
 
+    def crop(self, image):
+        cropped_image = image[self.border1[1]:self.border2[1], self.border1[0]: self.border2[0]]
+        return cropped_image
+
+    def plotting(self):
+        plt.plot(self.measurements)
+        plt.xlabel("Кадры")
+        plt.ylabel("Координата")
+        plt.title('Зависимость координаты от кадра')
+        plt.show()
+
 
 stand = Stand("Video2.mp4")
-for _ in range(1000):
+while True:
     img = stand.data_collection_state()
     if len(img) == 1:
         continue
     if len(img) == 0:
         break
-    cv2.imshow("video", img)
+    crop_img = stand.crop(img)
+    cv2.imshow("video", crop_img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+stand.plotting()
 stand.video.release()
 cv2.destroyAllWindows()
