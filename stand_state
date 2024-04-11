@@ -1,9 +1,8 @@
 import cv2
+import keyboard
 import numpy as np
 
 import matplotlib.pyplot as plt
-
-import time
 
 
 class Stand:
@@ -13,6 +12,8 @@ class Stand:
         self.measurements = []
 
         self.border1, self.border2 = self.get_selected_region(self.get_image())
+
+        self.state = "normal"
 
     def get_image(self):
         success, image = self.video.read()
@@ -91,10 +92,9 @@ class Stand:
         cv2.circle(img_copy, (x, y), 2, (0, 255, 0), -1)
         return img_copy
 
-    def draw_line(self, image, y_min, y_max):
+    def draw_line(self, image, y, color):
         img_copy = image.copy()
-        cv2.line(img_copy, (0, y_max), (image.shape[1], y_max), (255, 255, 0), 1)
-        cv2.line(img_copy, (0, y_min), (image.shape[1], y_min), (0, 255, 255), 1)
+        cv2.line(img_copy, (0, y), (image.shape[1], y), color, 1)
         return img_copy
 
     def coordinate_processing(self):
@@ -116,6 +116,7 @@ class Stand:
         return minimum, maximum
 
     def normal_state(self):
+        self.measurements = []
         image = self.get_image()
         if len(image) == 0:
             return []
@@ -136,18 +137,20 @@ class Stand:
             self.measurements.append(y)
             y_min, y_max = self.coordinate_processing()
             image_with_point = self.draw_point(image, y)
-            image_with_line = self.draw_line(image_with_point, y_min, y_max)
-            return image_with_line
+            image_with_one_line = self.draw_line(image_with_point, y_min, (0, 255, 255))
+            image_with_two_line = self.draw_line(image_with_one_line, y_max, (255, 255, 0))
+            return image_with_two_line
         return ["y not found"]
 
-    def data_processing_state(self, y_max):
+    def data_processing_state(self):
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
         if y:
-            image_with_line = self.draw_line(image, y_max)
+            y_min, y_max = self.coordinate_processing()
+            image_with_line = self.draw_line(image, (y_max + y_min) // 2, (0, 255, 0))
             image_with_line_and_point = self.draw_point(image_with_line, y)
             return image_with_line_and_point
         return ["y not found"]
@@ -163,18 +166,36 @@ class Stand:
         plt.title('Зависимость координаты от кадра')
         plt.show()
 
+    def on_key_event(self):
+        if self.state == "normal":
+            self.state = "collection"
+        elif self.state == "collection":
+            self.state = "processing"
+        else:
+            self.state = "normal"
 
-stand = Stand("Video2.mp4")
-while True:
-    img = stand.data_collection_state()
-    if len(img) == 1:
-        continue
-    if len(img) == 0:
-        break
-    crop_img = stand.crop(img)
-    cv2.imshow("video", crop_img)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    def event_handling(self):
+        keyboard.add_hotkey('space', self.on_key_event)
+
+        while True:
+            if self.state == "collection":
+                img = self.data_collection_state()
+            elif self.state == "processing":
+                img = self.data_processing_state()
+            else:
+                img = self.normal_state()
+            if len(img) == 1:
+                continue
+            if len(img) == 0:
+                break
+            crop_img = stand.crop(img)
+            cv2.imshow("video", crop_img)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+
+stand = Stand("Video3.mp4")
+stand.event_handling()
 stand.plotting()
 stand.video.release()
 cv2.destroyAllWindows()
