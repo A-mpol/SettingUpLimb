@@ -22,39 +22,36 @@ class Stand:
         return []
 
     def get_selected_region(self, image):
-        clone = image.copy()
-        cv2.namedWindow("image")
+        x1, y1, x2, y2 = 0, 0, 0, 0
+        draw = False
 
-        pts = []
-
-        def select_region(event, x, y, flags, param):
-            nonlocal pts
+        def get_mouse_position(event, x, y, flags, param):
+            nonlocal x1, y1, x2, y2, draw
 
             if event == cv2.EVENT_LBUTTONDOWN:
-                pts = [(x, y)]
+                x1, y1 = x, y
+                draw = True
 
-            elif event == cv2.EVENT_LBUTTONUP:
-                pts.append((x, y))
-                cv2.rectangle(clone, pts[0], pts[1], (0, 255, 0), 2)
-                cv2.imshow("image", clone)
+            if event == cv2.EVENT_MOUSEMOVE:
+                if draw:
+                    img = image.copy()
+                    cv2.line(img, (x1, y1), (x, y), (0, 255, 255), 1)
+                    cv2.imshow('image', img)
 
-        cv2.setMouseCallback("image", select_region)
+            if event == cv2.EVENT_LBUTTONUP:
+                x2, y2 = x, y
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                draw = False
+
+        cv2.namedWindow('image')
+        cv2.setMouseCallback('image', get_mouse_position)
 
         while True:
-            cv2.imshow("image", clone)
-            key = cv2.waitKey(1) & 0xFF
-
-            if key == ord("r"):
-                clone = image.copy()
-
-            elif key == ord("c"):
+            cv2.imshow('image', image)
+            if cv2.waitKey(1000) & 0xFF == 27:  # выход по нажатию Esc
                 break
 
         cv2.destroyAllWindows()
-
-        x1, y1 = min(pts[0][0], pts[1][0]), min(pts[0][1], pts[1][1])
-        x2, y2 = max(pts[0][0], pts[1][0]), max(pts[0][1], pts[1][1])
-
         return (x1, y1), (x2, y2)
 
     def get_image_contours(self, image):
@@ -152,7 +149,9 @@ class Stand:
             y_min, y_max = self.coordinate_processing()
             image_with_line = self.draw_line(image, (y_max + y_min) // 2, (0, 255, 0))
             image_with_line_and_point = self.draw_point(image_with_line, y)
-            return image_with_line_and_point
+            image_with_one_line = self.draw_line(image_with_line_and_point, y_min, (0, 255, 255))
+            image_with_two_line = self.draw_line(image_with_one_line, y_max, (255, 255, 0))
+            return image_with_two_line
         return ["y not found"]
 
     def crop(self, image):
@@ -189,6 +188,7 @@ class Stand:
             if len(img) == 0:
                 break
             crop_img = stand.crop(img)
+            cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("video", crop_img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
