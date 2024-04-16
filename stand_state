@@ -4,6 +4,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+from QtFile import Drive
+
 
 class Stand:
     def __init__(self, camera):
@@ -14,6 +16,14 @@ class Stand:
         self.border1, self.border2 = self.get_selected_region(self.get_image())
 
         self.state = "normal"
+
+        self.drive_is_connected = False
+        self.drive = Drive()
+        self.encoder_positions = []
+
+    def check_drive_is_connected(self):
+        if self.drive.connection():
+            self.drive_is_connected = True
 
     def get_image(self):
         success, image = self.video.read()
@@ -113,7 +123,8 @@ class Stand:
         return minimum, maximum
 
     def normal_state(self):
-        self.measurements = []
+        if len(self.measurements) > 0:
+            self.measurements.clear()
         image = self.get_image()
         if len(image) == 0:
             return []
@@ -125,12 +136,16 @@ class Stand:
         return ["y not found"]
 
     def data_collection_state(self):
+        if self.drive_is_connected:
+            encoder_position = self.drive.encoder_position
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
         if y:
+            if self.drive_is_connected:
+                self.encoder_positions.append(encoder_position)
             self.measurements.append(y)
             y_min, y_max = self.coordinate_processing()
             image_with_point = self.draw_point(image, y)
@@ -159,21 +174,25 @@ class Stand:
         return cropped_image
 
     def plotting(self):
+        if not plt.isinteractive():
+            plt.ion()
         plt.plot(self.measurements)
         plt.xlabel("Кадры")
         plt.ylabel("Координата")
         plt.title('Зависимость координаты от кадра')
-        plt.show()
+        plt.grid()
 
     def on_key_event(self):
         if self.state == "normal":
             self.state = "collection"
         elif self.state == "collection":
             self.state = "processing"
+        elif self.state == "processing" and self.drive_is_connected:
+            self.state = "getting into position"
         else:
             self.state = "normal"
 
-    def event_handling(self):
+    def event_handling_without_drive(self):
         keyboard.add_hotkey('space', self.on_key_event)
 
         while True:
@@ -193,9 +212,68 @@ class Stand:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
+    def event_handling_with_drive(self):
+        ONE_TURN = 20000
+        keyboard.add_hotkey('space', self.on_key_event)
+        while True:
+            if self.state == "collection":
+                self.drive.move_to_position(self.drive.encoder_position + ONE_TURN)
+                while not self.drive.in_position:
+                    img = self.data_collection_state()
+                    if len(img) == 1:
+                        continue
+                    if len(img) == 0:
+                        break
+                    crop_img = stand.crop(img)
+                    cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                                cv2.LINE_AA)
+                    cv2.imshow("video", crop_img)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                self.state = "processing"
+
+            if self.state == "processing":
+                img = self.data_processing_state()
+                if len(img) == 1:
+                    continue
+                if len(img) == 0:
+                    break
+                crop_img = stand.crop(img)
+                cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                            cv2.LINE_AA)
+                cv2.imshow("video", crop_img)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+            if self.state == "getting into position":
+                _, y_max = self.coordinate_processing()
+                for i in range(len(self.encoder_positions)):
+                    if self.measurements[i] == y_max:
+                        max_encoder_position = self.encoder_positions[i]
+                        break
+                self.drive.move_to_position(max_encoder_position)
+                while not self.drive.in_position:
+                    img = self.data_processing_state()
+                    if len(img) == 1:
+                        continue
+                    if len(img) == 0:
+                        break
+                    crop_img = stand.crop(img)
+                    cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                                cv2.LINE_AA)
+                    cv2.imshow("video", crop_img)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                self.state = "normal"
+
+    def event_handling(self):
+        if not self.drive_is_connected:
+            self.event_handling_without_drive()
+        else:
+            self.event_handling_with_drive()
+
 
 stand = Stand("Video3.mp4")
 stand.event_handling()
-stand.plotting()
 stand.video.release()
 cv2.destroyAllWindows()
