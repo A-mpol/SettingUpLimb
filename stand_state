@@ -173,15 +173,6 @@ class Stand:
         cropped_image = image[self.border1[1]:self.border2[1], self.border1[0]: self.border2[0]]
         return cropped_image
 
-    def plotting(self):
-        if not plt.isinteractive():
-            plt.ion()
-        plt.plot(self.measurements)
-        plt.xlabel("Кадры")
-        plt.ylabel("Координата")
-        plt.title('Зависимость координаты от кадра')
-        plt.grid()
-
     def on_key_event(self):
         if self.state == "normal":
             self.state = "collection"
@@ -199,8 +190,13 @@ class Stand:
             if self.state == "collection":
                 img = self.data_collection_state()
             elif self.state == "processing":
+                if not plt.fignum_exists(1):
+                    plt.plot(self.measurements)
+                    plt.show(block=False)
                 img = self.data_processing_state()
             else:
+                if plt.fignum_exists(1):
+                    plt.close()
                 img = self.normal_state()
             if len(img) == 1:
                 continue
@@ -208,6 +204,7 @@ class Stand:
                 break
             crop_img = stand.crop(img)
             cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(crop_img, str(len(self.measurements)), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("video", crop_img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -227,12 +224,18 @@ class Stand:
                     crop_img = stand.crop(img)
                     cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                                 cv2.LINE_AA)
+                    cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                                (255, 0, 0), 2,
+                                cv2.LINE_AA)
                     cv2.imshow("video", crop_img)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 self.state = "processing"
 
             if self.state == "processing":
+                if not plt.fignum_exists(1):
+                    plt.plot(self.measurements)
+                    plt.show(block=False)
                 img = self.data_processing_state()
                 if len(img) == 1:
                     continue
@@ -241,11 +244,16 @@ class Stand:
                 crop_img = stand.crop(img)
                 cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                             cv2.LINE_AA)
+                cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (255, 0, 0), 2,
+                            cv2.LINE_AA)
                 cv2.imshow("video", crop_img)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
             if self.state == "getting into position":
+                if plt.fignum_exists(1):
+                    plt.close()
                 _, y_max = self.coordinate_processing()
                 for i in range(len(self.encoder_positions)):
                     if self.measurements[i] == y_max:
@@ -261,6 +269,8 @@ class Stand:
                     crop_img = stand.crop(img)
                     cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                                 cv2.LINE_AA)
+                    cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                                cv2.LINE_AA)
                     cv2.imshow("video", crop_img)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -273,7 +283,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand("Video3.mp4")
+stand = Stand("Video7.mp4")
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
