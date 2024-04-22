@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from QtFile import Drive
+from WorkingWithDrive import Drive
 
 
 class Stand:
@@ -20,10 +20,12 @@ class Stand:
         self.drive_is_connected = False
         self.drive = Drive()
         self.encoder_positions = []
+        self.check_drive_is_connected()
 
     def check_drive_is_connected(self):
         if self.drive.connection():
             self.drive_is_connected = True
+            self.drive.turn_on()
 
     def get_image(self):
         success, image = self.video.read()
@@ -204,7 +206,8 @@ class Stand:
                 break
             crop_img = stand.crop(img)
             cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(crop_img, str(len(self.measurements)), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(crop_img, str(len(self.measurements)), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                        cv2.LINE_AA)
             cv2.imshow("video", crop_img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -224,7 +227,7 @@ class Stand:
                     crop_img = stand.crop(img)
                     cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                                 cv2.LINE_AA)
-                    cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
                                 (255, 0, 0), 2,
                                 cv2.LINE_AA)
                     cv2.imshow("video", crop_img)
@@ -234,7 +237,7 @@ class Stand:
 
             if self.state == "processing":
                 if not plt.fignum_exists(1):
-                    plt.plot(self.measurements)
+                    plt.plot(self.encoder_positions, self.measurements)
                     plt.show(block=False)
                 img = self.data_processing_state()
                 if len(img) == 1:
@@ -244,7 +247,7 @@ class Stand:
                 crop_img = stand.crop(img)
                 cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                             cv2.LINE_AA)
-                cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (255, 0, 0), 2,
                             cv2.LINE_AA)
                 cv2.imshow("video", crop_img)
@@ -269,12 +272,29 @@ class Stand:
                     crop_img = stand.crop(img)
                     cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
                                 cv2.LINE_AA)
-                    cv2.putText(crop_img, str(self.drive.encoder_position), (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                    cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                                (255, 0, 0), 2,
                                 cv2.LINE_AA)
                     cv2.imshow("video", crop_img)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 self.state = "normal"
+
+            if self.state == "normal":
+                img = self.normal_state()
+                if len(img) == 1:
+                    continue
+                if len(img) == 0:
+                    break
+                crop_img = stand.crop(img)
+                cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
+                            cv2.LINE_AA)
+                cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (255, 0, 0), 2,
+                            cv2.LINE_AA)
+                cv2.imshow("video", crop_img)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
     def event_handling(self):
         if not self.drive_is_connected:
@@ -283,7 +303,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand("Video7.mp4")
+stand = Stand(0)
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
