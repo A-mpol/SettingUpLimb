@@ -127,6 +127,8 @@ class Stand:
     def normal_state(self):
         if len(self.measurements) > 0:
             self.measurements.clear()
+        if len(self.encoder_positions) > 0:
+            self.encoder_positions.clear()
         image = self.get_image()
         if len(image) == 0:
             return []
@@ -303,7 +305,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand(0)
+stand = Stand("Video2.mp4")
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
