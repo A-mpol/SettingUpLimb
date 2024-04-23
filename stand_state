@@ -187,32 +187,44 @@ class Stand:
         else:
             self.state = "normal"
 
+    def show_image(self, image, coord):
+        crop_img = self.crop(image)
+        scaled_image = cv2.resize(crop_img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+        cv2.putText(scaled_image, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(scaled_image, coord, (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0),
+                    2,
+                    cv2.LINE_AA)
+        cv2.imshow("video", scaled_image)
+
     def event_handling_without_drive(self):
         keyboard.add_hotkey('space', self.on_key_event)
-
         while True:
             if self.state == "collection":
                 img = self.data_collection_state()
             elif self.state == "processing":
-                if not plt.fignum_exists(1):
-                    plt.plot(self.measurements)
-                    plt.show(block=False)
+                self.open_close_plot()
                 img = self.data_processing_state()
-            else:
-                if plt.fignum_exists(1):
-                    plt.close()
+            elif self.state == "normal":
+                self.open_close_plot()
                 img = self.normal_state()
             if len(img) == 1:
                 continue
             if len(img) == 0:
                 break
-            crop_img = stand.crop(img)
-            cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(crop_img, str(len(self.measurements)), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
-                        cv2.LINE_AA)
-            cv2.imshow("video", crop_img)
+            self.show_image(img, str(len(self.measurements)))
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+    def open_close_plot(self):
+        if not plt.fignum_exists(1) and self.state == "processing":
+            if self.drive_is_connected:
+                plt.plot(self.encoder_positions, self.measurements)
+            else:
+                plt.plot(self.measurements)
+            plt.show(block=False)
+            plt.pause(0.5)
+        elif (self.state == "normal" or self.state == "getting into position") and plt.fignum_exists(1):
+            plt.close()
 
     def event_handling_with_drive(self):
         ONE_TURN = 20000
@@ -226,39 +238,24 @@ class Stand:
                         continue
                     if len(img) == 0:
                         break
-                    crop_img = stand.crop(img)
-                    cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
-                                cv2.LINE_AA)
-                    cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                (255, 0, 0), 2,
-                                cv2.LINE_AA)
-                    cv2.imshow("video", crop_img)
+                    self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 self.state = "processing"
 
             if self.state == "processing":
-                if not plt.fignum_exists(1):
-                    plt.plot(self.encoder_positions, self.measurements)
-                    plt.show(block=False)
+                self.open_close_plot()
                 img = self.data_processing_state()
                 if len(img) == 1:
                     continue
                 if len(img) == 0:
                     break
-                crop_img = stand.crop(img)
-                cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
-                            cv2.LINE_AA)
-                cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (255, 0, 0), 2,
-                            cv2.LINE_AA)
-                cv2.imshow("video", crop_img)
+                self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
             if self.state == "getting into position":
-                if plt.fignum_exists(1):
-                    plt.close()
+                self.open_close_plot()
                 _, y_max = self.coordinate_processing()
                 for i in range(len(self.encoder_positions)):
                     if self.measurements[i] == y_max:
@@ -271,13 +268,7 @@ class Stand:
                         continue
                     if len(img) == 0:
                         break
-                    crop_img = stand.crop(img)
-                    cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
-                                cv2.LINE_AA)
-                    cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                                (255, 0, 0), 2,
-                                cv2.LINE_AA)
-                    cv2.imshow("video", crop_img)
+                    self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 self.state = "normal"
@@ -288,13 +279,7 @@ class Stand:
                     continue
                 if len(img) == 0:
                     break
-                crop_img = stand.crop(img)
-                cv2.putText(crop_img, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2,
-                            cv2.LINE_AA)
-                cv2.putText(crop_img, str(self.drive.encoder_position), (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (255, 0, 0), 2,
-                            cv2.LINE_AA)
-                cv2.imshow("video", crop_img)
+                self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
@@ -305,7 +290,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand("Video2.mp4")
+stand = Stand(0)
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
