@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from QtFile import Drive
+from WorkingWithDrive import Drive
 
 
 class Stand:
@@ -292,7 +292,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand("Video3.mp4")
+stand = Stand(0)
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
