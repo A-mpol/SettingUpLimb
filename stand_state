@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from WorkingWithDrive import Drive
+from QtFile import Drive
 
 
 class Stand:
@@ -47,7 +47,7 @@ class Stand:
             if event == cv2.EVENT_MOUSEMOVE:
                 if draw:
                     img = image.copy()
-                    cv2.line(img, (x1, y1), (x, y), (0, 255, 255), 1)
+                    cv2.rectangle(img, (x1, y1), (x, y), (0, 255, 0), 2)
                     cv2.imshow('image', img)
 
             if event == cv2.EVENT_LBUTTONUP:
@@ -178,14 +178,16 @@ class Stand:
         return cropped_image
 
     def on_key_event(self):
-        if self.state == "normal":
-            self.state = "collection"
-        elif self.state == "collection":
-            self.state = "processing"
-        elif self.state == "processing" and self.drive_is_connected:
-            self.state = "getting into position"
-        else:
-            self.state = "normal"
+        is_open = cv2.getWindowProperty('video', cv2.WND_PROP_VISIBLE)
+        if is_open > 0:
+            if self.state == "normal":
+                self.state = "collection"
+            elif self.state == "collection":
+                self.state = "processing"
+            elif self.state == "processing" and self.drive_is_connected:
+                self.state = "getting into position"
+            else:
+                self.state = "normal"
 
     def show_image(self, image, coord):
         crop_img = self.crop(image)
@@ -290,7 +292,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand(0)
+stand = Stand("Video3.mp4")
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
