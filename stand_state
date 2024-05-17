@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 
 from WorkingWithDrive import Drive
 
+import pyautogui
+
 
 class Stand:
     def __init__(self, camera):
@@ -178,9 +180,16 @@ class Stand:
         cropped_image = image[self.border1[1]:self.border2[1], self.border1[0]: self.border2[0]]
         return cropped_image
 
+    def check_window(self, title):
+        all_windows = pyautogui.getActiveWindowTitle()
+        if all_windows == title:
+            return True
+        return False   
+
     def on_key_event(self):
-        is_open = cv2.getWindowProperty('video', cv2.WND_PROP_VISIBLE)
-        if is_open > 0:
+        is_open = self.check_window("video")
+        print(is_open)
+        if is_open :
             if self.state == "normal":
                 self.state = "collection"
             elif self.state == "collection":
@@ -293,7 +302,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand("Video2.mp4")
+stand = Stand(0)
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
