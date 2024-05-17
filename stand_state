@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from WorkingWithDrive import Drive
+from DocDevice import Drive
 
 
 class Stand:
@@ -25,6 +25,8 @@ class Stand:
     def check_drive_is_connected(self):
         if self.drive.connection():
             self.drive_is_connected = True
+        if self.drive_is_connected:
+            self.drive.turn_on()
 
     def get_image(self):
         success, image = self.video.read()
@@ -192,7 +194,7 @@ class Stand:
         crop_img = self.crop(image)
         scaled_image = cv2.resize(crop_img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
         cv2.putText(scaled_image, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-        cv2.putText(scaled_image, coord, (200, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0),
+        cv2.putText(scaled_image, coord, (350, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0),
                     2,
                     cv2.LINE_AA)
         cv2.imshow("video", scaled_image)
@@ -291,7 +293,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand(0)
+stand = Stand("Video2.mp4")
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
