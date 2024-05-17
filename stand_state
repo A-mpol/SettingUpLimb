@@ -182,7 +182,7 @@ class Stand:
 
     def check_window(self, title):
         all_windows = pyautogui.getActiveWindowTitle()
-        if all_windows == title:
+        if all_windows == title or all_windows == "Figure 1":
             return True
         return False   
 
