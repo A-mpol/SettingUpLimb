@@ -3,7 +3,7 @@ from pymodbus import Framer, ModbusException
 
 
 class Drive:
-    def __init__(self, port="COM6", framer=Framer.ASCII, baudrate=57600, bytesize=8, parity="O", stopbits=1):
+    def __init__(self, port="COM8", framer=Framer.ASCII, baudrate=57600, bytesize=8, parity="O", stopbits=1):
         self.client = ModbusClient.ModbusSerialClient(
             port,
             framer,
@@ -21,6 +21,7 @@ class Drive:
             return True
         try:
             self.client.connect()
+            self.turn_on()
             return True
         except:
             return False
@@ -79,4 +80,3 @@ class Drive:
 
     def change_speed(self, speed):
         self.client.write_register(733, speed, 1)
-
