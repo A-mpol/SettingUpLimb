@@ -75,6 +75,8 @@ class Stand:
         binary_image = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 5)
         contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         img_contours = np.uint8(np.zeros((binary_image.shape[0], binary_image.shape[1])))
+        if len(contours) == 0:
+            print("Контуров не обнаружено")
         for contour in contours:
             img_contours = cv2.drawContours(img_contours, [contour], -1, (255, 255, 255), 1)
 
@@ -96,6 +98,7 @@ class Stand:
                 if not is_it_white_line:
                     continue
                 return y
+        print("Координата y не обнаружена")
         return False
 
     def draw_point(self, image, y):
@@ -111,6 +114,8 @@ class Stand:
 
     def coordinate_processing(self):
         mes = sorted(list(set(self.measurements)))
+        if len(mes) == 1:
+            return mes[0], mes[0]
         maximum = 0
         minimum = 0
         unacceptable_difference = 6
@@ -184,11 +189,10 @@ class Stand:
         all_windows = pyautogui.getActiveWindowTitle()
         if all_windows == title or all_windows == "Figure 1":
             return True
-        return False   
+        return False
 
     def on_key_event(self):
         is_open = self.check_window("video")
-        print(is_open)
         if is_open :
             if self.state == "normal":
                 self.state = "collection"
@@ -220,9 +224,11 @@ class Stand:
                 self.open_close_plot()
                 img = self.normal_state()
             if len(img) == 1:
+                print(img[0])
                 continue
             if len(img) == 0:
                 break
+            print("Кадр отображен")
             self.show_image(img, str(len(self.measurements)))
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -247,9 +253,11 @@ class Stand:
                 while not self.drive.in_position:
                     img = self.data_collection_state()
                     if len(img) == 1:
+                        print(img[0])
                         continue
                     if len(img) == 0:
                         break
+                    print("Кадр показан")
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -259,9 +267,11 @@ class Stand:
                 self.open_close_plot()
                 img = self.data_processing_state()
                 if len(img) == 1:
+                    print(img[0])
                     continue
                 if len(img) == 0:
                     break
+                print("Кадр показан")
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -277,9 +287,11 @@ class Stand:
                 while not self.drive.in_position:
                     img = self.data_processing_state()
                     if len(img) == 1:
+                        print(img[0])
                         continue
                     if len(img) == 0:
                         break
+                    print("Кадр показан")
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -288,9 +300,11 @@ class Stand:
             if self.state == "normal":
                 img = self.normal_state()
                 if len(img) == 1:
+                    print(img[0])
                     continue
                 if len(img) == 0:
                     break
+                print("Кадр показан")
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
