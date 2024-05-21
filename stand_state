@@ -273,7 +273,7 @@ class Stand:
                         break
                 self.state = "processing"
 
-            if self.state == "processing":
+            if self.state == "processing" or self.state == "setting limb":
                 self.open_close_plot()
                 img = self.data_processing_state()
                 if len(img) == 1:
@@ -301,7 +301,7 @@ class Stand:
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-                self.state = "normal"
+                self.state = "setting limb"
 
             if self.state == "normal":
                 img = self.normal_state()
