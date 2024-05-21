@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from WorkingWithDrive import Drive
 
 import pyautogui
+import pygetwindow
 
 
 class Stand:
@@ -29,6 +30,7 @@ class Stand:
             self.drive_is_connected = True
         if self.drive_is_connected:
             self.drive.turn_on()
+            self.drive.change_speed(250)
 
     def get_image(self):
         success, image = self.video.read()
@@ -71,7 +73,7 @@ class Stand:
 
     def get_image_contours(self, image):
         gray_frame = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        img = cv2.medianBlur(gray_frame, 7)
+        img = cv2.medianBlur(gray_frame, 3)
         binary_image = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 5)
         contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         img_contours = np.uint8(np.zeros((binary_image.shape[0], binary_image.shape[1])))
@@ -186,14 +188,23 @@ class Stand:
         return cropped_image
 
     def check_window(self, title):
-        all_windows = pyautogui.getActiveWindowTitle()
-        if all_windows == title or all_windows == "Figure 1":
-            return True
-        return False
+        try:
+            all_windows = pyautogui.getActiveWindowTitle()
+            if all_windows == title or all_windows == "Figure 1":
+                return True
+            else:
+                return False
+        except:
+            try:
+                all_windows = pygetwindow.getAllTitles()
+                if "Python video" in all_windows or "Python Figure 1" in all_windows:
+                    return True
+            except:
+                return False
 
     def on_key_event(self):
         is_open = self.check_window("video")
-        if is_open :
+        if is_open:
             if self.state == "normal":
                 self.state = "collection"
             elif self.state == "collection":
@@ -224,28 +235,29 @@ class Stand:
                 self.open_close_plot()
                 img = self.normal_state()
             if len(img) == 1:
-                print(img[0])
                 continue
             if len(img) == 0:
                 break
-            print("Кадр отображен")
             self.show_image(img, str(len(self.measurements)))
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     def open_close_plot(self):
-        if not plt.fignum_exists(1) and self.state == "processing":
-            if self.drive_is_connected:
-                plt.plot(self.encoder_positions, self.measurements)
-            else:
-                plt.plot(self.measurements)
-            plt.show(block=False)
-            plt.pause(0.5)
-        elif (self.state == "normal" or self.state == "getting into position") and plt.fignum_exists(1):
-            plt.close()
+        try:
+            if not plt.fignum_exists(1) and self.state == "processing":
+                if self.drive_is_connected:
+                    plt.plot(self.encoder_positions, self.measurements)
+                else:
+                    plt.plot(self.measurements)
+                plt.show(block=False)
+                plt.pause(0.5)
+            elif (self.state == "normal" or self.state == "getting into position") and plt.fignum_exists(1):
+                plt.close()
+        except:
+            print("Проблема с графиком")
 
     def event_handling_with_drive(self):
-        ONE_TURN = 20000
+        ONE_TURN = 20000 * 15
         keyboard.add_hotkey('space', self.on_key_event)
         while True:
             if self.state == "collection":
@@ -253,11 +265,9 @@ class Stand:
                 while not self.drive.in_position:
                     img = self.data_collection_state()
                     if len(img) == 1:
-                        print(img[0])
                         continue
                     if len(img) == 0:
                         break
-                    print("Кадр показан")
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -267,11 +277,9 @@ class Stand:
                 self.open_close_plot()
                 img = self.data_processing_state()
                 if len(img) == 1:
-                    print(img[0])
                     continue
                 if len(img) == 0:
                     break
-                print("Кадр показан")
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -287,11 +295,9 @@ class Stand:
                 while not self.drive.in_position:
                     img = self.data_processing_state()
                     if len(img) == 1:
-                        print(img[0])
                         continue
                     if len(img) == 0:
                         break
-                    print("Кадр показан")
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
@@ -300,11 +306,9 @@ class Stand:
             if self.state == "normal":
                 img = self.normal_state()
                 if len(img) == 1:
-                    print(img[0])
                     continue
                 if len(img) == 0:
                     break
-                print("Кадр показан")
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
