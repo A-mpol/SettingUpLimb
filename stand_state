@@ -31,7 +31,7 @@ class Stand:
     def setting_drive(self):
         if self.is_drive_connected:
             self.drive.turn_on()
-            self.drive.change_speed(250)
+            self.drive.change_speed(100)
 
     def get_image(self):
         try:
@@ -225,6 +225,7 @@ class Stand:
             else:
                 self.list_y.clear()
                 self.drive_positions.clear()
+                self.y_min, self.y_max = -1, -1
                 self.state = "normal"
 
     # Отображение кадров
@@ -291,6 +292,7 @@ class Stand:
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 self.state = "processing"
+                self.y_min, self.y_max = self.get_min_and_max_y()
 
             if self.state == "processing" or self.state == "setting limb":
                 self.open_close_plot()
@@ -346,7 +348,7 @@ class Stand:
             self.event_handling_with_drive()
 
 
-stand = Stand(0)
+stand = Stand("Video2.mp4")
 stand.event_handling()
 stand.video.release()
 cv2.destroyAllWindows()
