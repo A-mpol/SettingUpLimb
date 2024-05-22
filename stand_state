@@ -12,34 +12,38 @@ import pygetwindow
 
 class Stand:
     def __init__(self, camera):
+        self.drive = Drive()
+        self.is_drive_connected = self.drive.connected()
+        self.setting_drive()
+
         self.video = cv2.VideoCapture(camera)
 
-        self.measurements = []
+        self.top_border, self.lower_border = self.get_coordinates_of_selected_area(self.get_image())
+        self.x = (self.top_border[0] + self.lower_border[0]) // 2
 
-        self.border1, self.border2 = self.get_selected_region(self.get_image())
+        self.list_y = []
+        self.drive_positions = []
+
+        self.y_min, self.y_max = -1, -1
 
         self.state = "normal"
 
-        self.drive_is_connected = False
-        self.drive = Drive()
-        self.encoder_positions = []
-        self.check_drive_is_connected()
-
-    def check_drive_is_connected(self):
-        if self.drive.connection():
-            self.drive_is_connected = True
-        if self.drive_is_connected:
+    def setting_drive(self):
+        if self.is_drive_connected:
             self.drive.turn_on()
             self.drive.change_speed(250)
 
     def get_image(self):
-        success, image = self.video.read()
-        if success:
-            return image
-        return []
+        try:
+            success, image = self.video.read()
+            if success:
+                return image
+            return []
+        except:
+            print("Кадр не считывается")
 
-    def get_selected_region(self, image):
-        x1, y1, x2, y2 = 0, 0, 0, 0
+    def get_coordinates_of_selected_area(self, image):
+        x1, y1, x2, y2 = -1, -1, -1, -1
         draw = False
 
         def get_mouse_position(event, x, y, flags, param):
@@ -69,128 +73,134 @@ class Stand:
                 break
 
         cv2.destroyAllWindows()
-        return (x1, y1), (x2, y2)
+        if all([h != -1 for h in [x1, x2, y1, y2]]):
+            return (x1, y1), (x2, y2)
+        print("Область не выделена")
+        return (0, 0), (image.size[1], image.size[0])
 
+    # Работа с кадрами
     def get_image_contours(self, image):
-        gray_frame = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        img = cv2.medianBlur(gray_frame, 3)
-        binary_image = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 5)
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blur_image = cv2.medianBlur(gray_image, 3)
+        binary_image = cv2.adaptiveThreshold(blur_image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 5)
         contours, hierarchy = cv2.findContours(binary_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        img_contours = np.uint8(np.zeros((binary_image.shape[0], binary_image.shape[1])))
         if len(contours) == 0:
             print("Контуров не обнаружено")
+            return []
+        image_contours = np.uint8(np.zeros((binary_image.shape[0], binary_image.shape[1])))
         for contour in contours:
-            img_contours = cv2.drawContours(img_contours, [contour], -1, (255, 255, 255), 1)
-
-        return img_contours
+            image_contours = cv2.drawContours(image_contours, [contour], -1, (255, 255, 255), 1)
+        return image_contours
 
     def get_y_coordinate(self, bw_image):
-        x = (self.border1[0] + self.border2[0]) // 2
-
-        for y in range(self.border1[1], self.border2[1]):
-            pixel = bw_image[y][x]
-            if pixel == 255 and bw_image[y + 1][x] == 0:
-
+        for y in range(self.top_border[1], self.lower_border[1]):
+            pixel = bw_image[y][self.x]
+            if pixel == 255 and bw_image[y + 1][self.x] == 0:
                 is_it_white_line = True
                 for i in range(100):
-                    if bw_image[y][x + i] == 255 and bw_image[y + 1][x + i] == 255 \
-                            and bw_image[y - 1][x + i] == 255:
+                    if bw_image[y][self.x + i] == 255 and bw_image[y + 1][self.x + i] == 255 \
+                            and bw_image[y - 1][self.x + i] == 255:
                         is_it_white_line = False
                         break
                 if not is_it_white_line:
                     continue
                 return y
         print("Координата y не обнаружена")
-        return False
+        return -1
 
     def draw_point(self, image, y):
-        x = (self.border1[0] + self.border2[0]) // 2
         img_copy = image.copy()
-        cv2.circle(img_copy, (x, y), 2, (0, 255, 0), -1)
+        cv2.circle(img_copy, (self.x, y), 2, (200, 255, 255), -1)
         return img_copy
 
-    def draw_line(self, image, y, color):
+    def draw_lines(self, image, y_min, y_max):
         img_copy = image.copy()
-        cv2.line(img_copy, (0, y), (image.shape[1], y), color, 1)
+        cv2.line(img_copy, (0, y_min), (image.shape[1], y_min), (255, 255, 0), 1)
+        cv2.line(img_copy, (0, y_max), (image.shape[1], y_max), (0, 255, 255), 1)
+        if self.state == "processing":
+            y_medium = (y_max + y_min) // 2
+            cv2.line(img_copy, (0, y_medium), (image.shape[1], y_medium), (255, 0, 255), 1)
         return img_copy
 
-    def coordinate_processing(self):
-        mes = sorted(list(set(self.measurements)))
-        if len(mes) == 1:
-            return mes[0], mes[0]
+    def get_min_and_max_y(self):
+        list_y_copy = list(set(self.list_y))
+        list_y_copy.sort()
+
+        if len(list_y_copy) == 0:
+            print("Список значений Y пуст")
+            return -1, -1
+
+        if len(list_y_copy) == 1:
+            return list_y_copy[0], list_y_copy[0]
+
         maximum = 0
         minimum = 0
-        unacceptable_difference = 6
-        for i in range(1, len(mes) - 2):
-            if mes[i] - mes[i - 1] < unacceptable_difference \
-                    and mes[i + 1] - mes[i] < unacceptable_difference:
-                maximum = mes[i - 1]
+        MAX_DIFFERENCE = 4
+
+        for i in range(1, len(list_y_copy) - 1):
+            if list_y_copy[i] - list_y_copy[i - 1] < MAX_DIFFERENCE and list_y_copy[i + 1] - list_y_copy[i] < MAX_DIFFERENCE:
+                maximum = list_y_copy[i - 1]
                 break
-        for j in range(len(mes) - 1, 1, -1):
-            if mes[j] - mes[j - 1] < unacceptable_difference \
-                    and mes[j - 1] - mes[j - 2] < unacceptable_difference:
-                minimum = mes[j]
+
+        for j in range(len(list_y_copy) - 1, 1, -1):
+            if list_y_copy[j] - list_y_copy[j - 1] < MAX_DIFFERENCE and list_y_copy[j - 1] - list_y_copy[j - 2] < MAX_DIFFERENCE:
+                minimum = list_y_copy[j]
                 break
 
         return minimum, maximum
 
-    def normal_state(self):
-        if len(self.measurements) > 0:
-            self.measurements.clear()
-        if len(self.encoder_positions) > 0:
-            self.encoder_positions.clear()
+    # Работа с состояниями
+    def get_image_in_normal_state(self):
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
-        if y:
+        if y != -1:
             image_with_point = self.draw_point(image, y)
             return image_with_point
-        return ["y not found"]
+        return [-1]
 
-    def data_collection_state(self):
-        if self.drive_is_connected:
-            encoder_position = self.drive.encoder_position
+    def get_image_in_collection_state(self):
+        if self.is_drive_connected:
+            drive_position = self.drive.encoder_position
+            if drive_position == -1:
+                return [-1]
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
-        if y:
-            if self.drive_is_connected:
-                self.encoder_positions.append(encoder_position)
-            self.measurements.append(y)
-            y_min, y_max = self.coordinate_processing()
+        if y != -1:
+            if self.is_drive_connected:
+                self.drive_positions.append(drive_position)
+            self.list_y.append(y)
             image_with_point = self.draw_point(image, y)
-            image_with_one_line = self.draw_line(image_with_point, y_min, (0, 255, 255))
-            image_with_two_line = self.draw_line(image_with_one_line, y_max, (255, 255, 0))
-            return image_with_two_line
-        return ["y not found"]
+            y_min, y_max = self.get_min_and_max_y()
+            if y_min != -1 and y_max != -1:
+                image_with_lines = self.draw_lines(image_with_point, y_min, y_max)
+                return image_with_lines
+            return image_with_point
+        return [-1]
 
-    def data_processing_state(self):
+    def get_image_in_processing_state(self):
         image = self.get_image()
         if len(image) == 0:
             return []
         image_contours = self.get_image_contours(image)
         y = self.get_y_coordinate(image_contours)
-        if y:
-            y_min, y_max = self.coordinate_processing()
-            image_with_line = self.draw_line(image, (y_max + y_min) // 2, (0, 255, 0))
-            image_with_line_and_point = self.draw_point(image_with_line, y)
-            image_with_one_line = self.draw_line(image_with_line_and_point, y_min, (0, 255, 255))
-            image_with_two_line = self.draw_line(image_with_one_line, y_max, (255, 255, 0))
-            return image_with_two_line
-        return ["y not found"]
+        if y != -1:
+            image_with_point = self.draw_point(image, y)
+            if self.y_max != -1 and self.y_min != -1:
+                image_with_lines = self.draw_lines(image_with_point, self.y_min, self.y_max)
+                return image_with_lines
+            return image_with_point
+        return [-1]
 
-    def crop(self, image):
-        cropped_image = image[self.border1[1]:self.border2[1], self.border1[0]: self.border2[0]]
-        return cropped_image
-
-    def check_window(self, title):
+    def check_window(self):
         try:
             all_windows = pyautogui.getActiveWindowTitle()
-            if all_windows == title or all_windows == "Figure 1":
+            if all_windows == "video" or all_windows == "Figure 1":
                 return True
             else:
                 return False
@@ -203,58 +213,66 @@ class Stand:
                 return False
 
     def on_key_event(self):
-        is_open = self.check_window("video")
+        is_open = self.check_window()
         if is_open:
             if self.state == "normal":
                 self.state = "collection"
             elif self.state == "collection":
+                self.y_min, self.y_max = self.get_min_and_max_y()
                 self.state = "processing"
-            elif self.state == "processing" and self.drive_is_connected:
+            elif self.state == "processing" and self.is_drive_connected:
                 self.state = "getting into position"
             else:
+                self.list_y.clear()
+                self.drive_positions.clear()
                 self.state = "normal"
 
-    def show_image(self, image, coord):
-        crop_img = self.crop(image)
-        scaled_image = cv2.resize(crop_img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
-        cv2.putText(scaled_image, self.state, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-        cv2.putText(scaled_image, coord, (350, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0),
-                    2,
-                    cv2.LINE_AA)
-        cv2.imshow("video", scaled_image)
+    # Отображение кадров
+    def show_image(self, image, position):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1
+        font_thickness = 2
+        cropped_image = image[self.top_border[1]:self.lower_border[1], self.top_border[0]: self.lower_border[0]]
+        resized_image = cv2.resize(cropped_image, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
+        cv2.putText(resized_image, self.state, (10, 25), font, font_scale, (255, 0, 0), font_thickness, cv2.LINE_AA)
+        cv2.putText(resized_image, position, (resized_image.shape[1] - 200, 25), font, font_scale, (255, 0, 0),
+                    font_thickness, cv2.LINE_AA)
+        cv2.imshow("video", resized_image)
+
+    # Отображение графика
+    def open_close_plot(self):
+        try:
+            if len(plt.get_fignums()) == 0 and self.state == "processing":
+                if self.is_drive_connected and len(self.drive_positions) == len(self.list_y):
+                    plt.plot(self.drive_positions, self.list_y)
+                else:
+                    plt.plot(self.list_y)
+                plt.show(block=False)
+                plt.pause(0.5)
+            elif (self.state == "normal" or self.state == "getting into position") and len(plt.get_fignums()) == 1:
+                plt.close()
+        except:
+            print("Проблема с графиком")
 
     def event_handling_without_drive(self):
         keyboard.add_hotkey('space', self.on_key_event)
         while True:
             if self.state == "collection":
-                img = self.data_collection_state()
+                image = self.get_image_in_collection_state()
             elif self.state == "processing":
                 self.open_close_plot()
-                img = self.data_processing_state()
+                image = self.get_image_in_processing_state()
             elif self.state == "normal":
                 self.open_close_plot()
-                img = self.normal_state()
-            if len(img) == 1:
+                image = self.get_image_in_normal_state()
+            if len(image) == 1:
                 continue
-            if len(img) == 0:
+            if len(image) == 0:
+                print("Обработка видео окончена")
                 break
-            self.show_image(img, str(len(self.measurements)))
+            self.show_image(image, str(len(self.list_y)))
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-
-    def open_close_plot(self):
-        try:
-            if not plt.fignum_exists(1) and self.state == "processing":
-                if self.drive_is_connected:
-                    plt.plot(self.encoder_positions, self.measurements)
-                else:
-                    plt.plot(self.measurements)
-                plt.show(block=False)
-                plt.pause(0.5)
-            elif (self.state == "normal" or self.state == "getting into position") and plt.fignum_exists(1):
-                plt.close()
-        except:
-            print("Проблема с графиком")
 
     def event_handling_with_drive(self):
         ONE_TURN = 20000 * 15
@@ -263,10 +281,11 @@ class Stand:
             if self.state == "collection":
                 self.drive.move_to_position(self.drive.encoder_position + ONE_TURN)
                 while not self.drive.in_position:
-                    img = self.data_collection_state()
+                    img = self.get_image_in_collection_state()
                     if len(img) == 1:
                         continue
                     if len(img) == 0:
+                        print("Обработка видео окончена")
                         break
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -275,10 +294,11 @@ class Stand:
 
             if self.state == "processing" or self.state == "setting limb":
                 self.open_close_plot()
-                img = self.data_processing_state()
+                img = self.get_image_in_processing_state()
                 if len(img) == 1:
                     continue
                 if len(img) == 0:
+                    print("Обработка видео окончена")
                     break
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -286,17 +306,22 @@ class Stand:
 
             if self.state == "getting into position":
                 self.open_close_plot()
-                _, y_max = self.coordinate_processing()
-                for i in range(len(self.encoder_positions)):
-                    if self.measurements[i] == y_max:
-                        max_encoder_position = self.encoder_positions[i]
+                required_position = -1
+                for i in range(len(self.drive_positions)):
+                    if self.list_y[i] == self.y_max:
+                        required_position = self.drive_positions[i]
                         break
-                self.drive.move_to_position(max_encoder_position)
+                if required_position == -1:
+                    print("Необходимой позици нет")
+                    self.state = "setting limb"
+                    continue
+                self.drive.move_to_position(required_position)
                 while not self.drive.in_position:
-                    img = self.data_processing_state()
+                    img = self.get_image_in_processing_state()
                     if len(img) == 1:
                         continue
                     if len(img) == 0:
+                        print("Обработка видео окончена")
                         break
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -304,17 +329,18 @@ class Stand:
                 self.state = "setting limb"
 
             if self.state == "normal":
-                img = self.normal_state()
+                img = self.get_image_in_normal_state()
                 if len(img) == 1:
                     continue
                 if len(img) == 0:
+                    print("Обработка видео окончена")
                     break
                 self.show_image(img, str(self.drive.encoder_position))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
     def event_handling(self):
-        if not self.drive_is_connected:
+        if not self.is_drive_connected:
             self.event_handling_without_drive()
         else:
             self.event_handling_with_drive()
