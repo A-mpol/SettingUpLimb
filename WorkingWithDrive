@@ -14,9 +14,9 @@ class Drive:
             strict=False
         )
 
-        self.position = 0
+        self._position = -1
 
-    def connection(self):
+    def connected(self):
         if self.client.connected:
             return True
         try:
@@ -36,14 +36,13 @@ class Drive:
 
     @property
     def encoder_position(self):
-        result = 0
         try:
             rr = self.client.read_holding_registers(1923, 2, slave=1)
-            self.position = (rr.registers[1] << 16) + rr.registers[0]
-            result = self.position
-        except ModbusException as exc:
-            print(f"Received ModbusException({exc}) from library")
-        return result
+            self._position = (rr.registers[1] << 16) + rr.registers[0]
+            return self._position
+        except:
+            print("Позиция привода не получена")
+            return -1
 
     def __set_position(self, position):
         if position < 0:
@@ -76,7 +75,10 @@ class Drive:
     @property
     def in_position(self):
         rr = self.client.read_holding_registers(1549, 1, slave=1)
-        return rr.registers[0] == 11
+        try:
+            return rr.registers[0] == 11
+        except:
+            pass
 
     def change_speed(self, speed):
         self.client.write_register(733, speed, 1)
