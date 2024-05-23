@@ -117,7 +117,7 @@ class Stand:
         img_copy = image.copy()
         cv2.line(img_copy, (0, y_min), (image.shape[1], y_min), (255, 255, 0), 1)
         cv2.line(img_copy, (0, y_max), (image.shape[1], y_max), (0, 255, 255), 1)
-        if self.state == "processing":
+        if self.state == "processing" or self.state == "setting limb":
             y_medium = (y_max + y_min) // 2
             cv2.line(img_copy, (0, y_medium), (image.shape[1], y_medium), (255, 0, 255), 1)
         return img_copy
