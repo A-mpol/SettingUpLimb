@@ -249,13 +249,14 @@ class Stand:
         processed_list_y = []
         difference = self.list_y[0]
         for i in range(len(self.list_y)):
-            processed_list_y.append(self.list_y[i] - difference)
+            processed_list_y.append((self.list_y[i] - difference) * -1)
 
         if self.is_drive_connected:
-            degrees_per_pulse = 360 // 20000
+            degrees_per_pulse = 360 / 20000
+            difference = self.drive_positions[0]
             processed_drive_positions = []
             for j in range(len(self.drive_positions)):
-                processed_drive_positions.append(self.drive_positions[j] * degrees_per_pulse)
+                processed_drive_positions.append(int((self.drive_positions[j] - difference) * degrees_per_pulse))
             return processed_list_y, processed_drive_positions
         return processed_list_y
 
@@ -296,7 +297,7 @@ class Stand:
                 break
 
     def event_handling_with_drive(self):
-        one_turn = 20000 * 15
+        one_turn = 20000 * 2
         keyboard.add_hotkey('space', self.on_key_event)
         while True:
             if self.state == "collection":
