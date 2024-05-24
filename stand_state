@@ -238,20 +238,36 @@ class Stand:
         cropped_image = image[self.top_border[1]:self.lower_border[1], self.top_border[0]: self.lower_border[0]]
         height, width = cropped_image.shape[:2]
         screen_width, screen_height = pyautogui.size()
-        resized_image = cv2.resize(cropped_image, None, fx=screen_width // width, fy=screen_height // height, interpolation=cv2.INTER_LINEAR)
+        resized_image = cv2.resize(cropped_image, None, fx=(screen_width // width), fy=(screen_height // height), interpolation=cv2.INTER_LINEAR)
         cv2.putText(resized_image, self.state, (10, 25), font, font_scale, (255, 0, 0), font_thickness, cv2.LINE_AA)
         cv2.putText(resized_image, position, (resized_image.shape[1] - 200, 25), font, font_scale, (255, 0, 0),
                     font_thickness, cv2.LINE_AA)
         cv2.imshow("video", resized_image)
 
     # Отображение графика
+    def get_data_processing_for_graph(self):
+        processed_list_y = []
+        difference = self.list_y[0]
+        for i in range(len(self.list_y)):
+            processed_list_y.append(self.list_y[i] - difference)
+
+        if self.is_drive_connected:
+            degrees_per_pulse = 360 // 20000
+            processed_drive_positions = []
+            for j in range(len(self.drive_positions)):
+                processed_drive_positions.append(self.drive_positions[j] * degrees_per_pulse)
+            return processed_list_y, processed_drive_positions
+        return processed_list_y
+
     def open_close_plot(self):
         try:
             if len(plt.get_fignums()) == 0 and self.state == "processing":
                 if self.is_drive_connected and len(self.drive_positions) == len(self.list_y):
-                    plt.plot(self.drive_positions, self.list_y)
+                    processed_list_y, processed_drive_positions = self.get_data_processing_for_graph()
+                    plt.plot(processed_drive_positions, processed_list_y)
                 else:
-                    plt.plot(self.list_y)
+                    processed_list_y = self.get_data_processing_for_graph()
+                    plt.plot(processed_list_y)
                 plt.show(block=False)
                 plt.pause(0.5)
             elif (self.state == "normal" or self.state == "getting into position") and len(plt.get_fignums()) == 1:
