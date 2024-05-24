@@ -26,7 +26,7 @@ class Stand:
 
         self.y_min, self.y_max = -1, -1
 
-        self.state = "normal"
+        self.state = "обычное"
 
     def setting_drive(self):
         if self.is_drive_connected:
@@ -117,7 +117,7 @@ class Stand:
         img_copy = image.copy()
         cv2.line(img_copy, (0, y_min), (image.shape[1], y_min), (255, 255, 0), 1)
         cv2.line(img_copy, (0, y_max), (image.shape[1], y_max), (0, 255, 255), 1)
-        if self.state == "processing" or self.state == "setting limb":
+        if self.state == "обработка" or self.state == "настройка лимба":
             y_medium = (y_max + y_min) // 2
             cv2.line(img_copy, (0, y_medium), (image.shape[1], y_medium), (255, 0, 255), 1)
         return img_copy
@@ -217,22 +217,22 @@ class Stand:
     def on_key_event(self):
         is_open = self.check_window()
         if is_open and (not self.is_drive_connected or self.drive.in_position):
-            if self.state == "normal":
-                self.state = "collection"
-            elif self.state == "collection":
+            if self.state == "обычное":
+                self.state = "сбор данных"
+            elif self.state == "сбор данных":
                 self.y_min, self.y_max = self.get_min_and_max_y()
-                self.state = "processing"
-            elif self.state == "processing" and self.is_drive_connected:
-                self.state = "getting into position"
+                self.state = "обработка"
+            elif self.state == "обработка" and self.is_drive_connected:
+                self.state = "выход в позицию"
             else:
                 self.list_y.clear()
                 self.drive_positions.clear()
                 self.y_min, self.y_max = -1, -1
-                self.state = "normal"
+                self.state = "обычное"
 
     # Отображение кадров
     def show_image(self, image, position):
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        font = cv2.FONT_HERSHEY_COMPLEX
         font_scale = 1
         font_thickness = 2
         cropped_image = image[self.top_border[1]:self.lower_border[1], self.top_border[0]: self.lower_border[0]]
@@ -258,11 +258,12 @@ class Stand:
             for j in range(len(self.drive_positions)):
                 processed_drive_positions.append(int((self.drive_positions[j] - difference) * degrees_per_pulse))
             return processed_list_y, processed_drive_positions
+
         return processed_list_y
 
     def open_close_plot(self):
         try:
-            if len(plt.get_fignums()) == 0 and self.state == "processing":
+            if len(plt.get_fignums()) == 0 and self.state == "обработка":
                 if self.is_drive_connected and len(self.drive_positions) == len(self.list_y):
                     processed_list_y, processed_drive_positions = self.get_data_processing_for_graph()
                     plt.plot(processed_drive_positions, processed_list_y)
@@ -271,7 +272,7 @@ class Stand:
                     plt.plot(processed_list_y)
                 plt.show(block=False)
                 plt.pause(0.5)
-            elif (self.state == "normal" or self.state == "getting into position") and len(plt.get_fignums()) == 1:
+            elif (self.state == "обычное" or self.state == "выход в позицию") and len(plt.get_fignums()) == 1:
                 plt.close()
         except:
             print("Проблема с графиком")
@@ -279,12 +280,12 @@ class Stand:
     def event_handling_without_drive(self):
         keyboard.add_hotkey('space', self.on_key_event)
         while True:
-            if self.state == "collection":
+            if self.state == "сбор данных":
                 image = self.get_image_in_collection_state()
-            elif self.state == "processing":
+            elif self.state == "обработка":
                 self.open_close_plot()
                 image = self.get_image_in_processing_state()
-            elif self.state == "normal":
+            elif self.state == "обычное":
                 self.open_close_plot()
                 image = self.get_image_in_normal_state()
             if len(image) == 1:
@@ -297,10 +298,10 @@ class Stand:
                 break
 
     def event_handling_with_drive(self):
-        one_turn = 20000 * 2
+        one_turn = 20000 * 3
         keyboard.add_hotkey('space', self.on_key_event)
         while True:
-            if self.state == "collection":
+            if self.state == "сбор данных":
                 self.drive.move_to_position(self.drive.encoder_position + one_turn)
                 while not self.drive.in_position:
                     img = self.get_image_in_collection_state()
@@ -312,10 +313,10 @@ class Stand:
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-                self.state = "processing"
+                self.state = "обработка"
                 self.y_min, self.y_max = self.get_min_and_max_y()
 
-            if self.state == "processing" or self.state == "setting limb":
+            if self.state == "обработка" or self.state == "настройка лимба":
                 self.open_close_plot()
                 img = self.get_image_in_processing_state()
                 if len(img) == 1:
@@ -327,7 +328,7 @@ class Stand:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-            if self.state == "getting into position":
+            if self.state == "выход в позицию":
                 self.open_close_plot()
                 required_position = -1
                 for i in range(len(self.drive_positions)):
@@ -336,7 +337,7 @@ class Stand:
                         break
                 if required_position == -1:
                     print("Необходимой позици нет")
-                    self.state = "setting limb"
+                    self.state = "настройка лимба"
                     continue
                 self.drive.move_to_position(required_position)
                 while not self.drive.in_position:
@@ -349,9 +350,9 @@ class Stand:
                     self.show_image(img, str(self.drive.encoder_position))
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
-                self.state = "setting limb"
+                self.state = "настройка лимба"
 
-            if self.state == "normal":
+            if self.state == "обычное":
                 img = self.get_image_in_normal_state()
                 if len(img) == 1:
                     continue
