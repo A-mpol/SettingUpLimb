@@ -18,7 +18,8 @@ class Stand:
 
         self.video = cv2.VideoCapture(camera)
 
-        self.top_border, self.lower_border = self.get_coordinates_of_selected_area(self.get_image())
+        first_image, fx, fy = self.setting_first_image()
+        self.top_border, self.lower_border = self.get_coordinates_of_selected_area(first_image, fx, fy)
         self.x = (self.top_border[0] + self.lower_border[0]) // 2
 
         self.list_y = []
@@ -27,6 +28,16 @@ class Stand:
         self.y_min, self.y_max = -1, -1
 
         self.state = "обычное"
+
+    def setting_first_image(self):
+        first_image = self.get_image()
+        height, width = first_image.shape[:2]
+        screen_width, screen_height = pyautogui.size()
+        if height > screen_height or width > screen_width:
+            resized_image = cv2.resize(first_image, None, fx=(screen_width / width), fy=(screen_height / height),
+                                       interpolation=cv2.INTER_LINEAR)
+            return resized_image, (screen_width / width), (screen_height / height)
+        return first_image, 1, 1
 
     def setting_drive(self):
         if self.is_drive_connected:
@@ -42,7 +53,7 @@ class Stand:
         except:
             print("Кадр не считывается")
 
-    def get_coordinates_of_selected_area(self, image):
+    def get_coordinates_of_selected_area(self, image, fx, fy):
         x1, y1, x2, y2 = -1, -1, -1, -1
         draw = False
 
@@ -74,9 +85,13 @@ class Stand:
 
         cv2.destroyAllWindows()
         if all([h != -1 for h in [x1, x2, y1, y2]]):
+            x1 = int(x1 / fx)
+            x2 = int(x2 / fx)
+            y1 = int(y1 / fy)
+            y2 = int(y2 / fy)
             return (x1, y1), (x2, y2)
         print("Область не выделена")
-        return (0, 0), (image.size[1], image.size[0])
+        return (0, 0), (image.size[1] - 1, image.size[0] - 1)
 
     # Работа с кадрами
     def get_image_contours(self, image):
