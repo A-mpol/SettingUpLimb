@@ -1,0 +1,81 @@
+from DocDevice import Drive
+from WorkWithOpenCV import Shot
+
+import cv2
+
+
+class Stand:
+    def __init__(self, camera):
+        self.servo_motor = Drive()
+        self.video = cv2.VideoCapture(camera)
+        self.image = None
+        self.measurements = []
+        self.pos_mes = []
+        self.impulses = self.impulses_in_circulation("info.txt")
+
+    def get_image_from_video(self):
+        success, image = self.video.read()
+        if success:
+            self.image = Shot(image)
+            return image
+        return []
+
+    def engine_rotation_start(self):
+        self.servo_motor.turn_on()
+
+    def engine_rotation_stop(self):
+        self.servo_motor.switch_off()
+
+    def current_engine_position(self):
+        return self.servo_motor.encoder_position
+
+    def get_center_circle_coordinate(self):
+        self.pos_mes.append(self.servo_motor.encoder_position)
+        if self.image:
+            y = self.image.get_y_coordinate()
+            self.measurements.append(y)
+
+    def deviation_display(self, y, color, image):
+        img_copy = image.copy()
+        cv2.circle(img_copy, (self.image.x, y), 2, color, 2, -1)
+        return img_copy
+
+    def setting_drive_to_positive_extreme(self, extreme):
+        self.servo_motor.move_to_position(extreme)
+
+    def coordinate_processing(self):
+        mes = sorted(list(set(self.measurements)))
+        maximum = 0
+        minimum = 0
+        unacceptable_difference = 6
+        for i in range(1, len(self.measurements) - 2):
+            if self.measurements[i] - self.measurements[i - 1] < unacceptable_difference \
+                    and self.measurements[i + 1] - self.measurements[i] < unacceptable_difference:
+                minimum = self.measurements[i - 1]
+                break
+        for j in range(len(mes) - 1, 1, -1):
+            if mes[j] - mes[j - 1] < unacceptable_difference \
+                    and mes[j - 1] - mes[j - 2] < unacceptable_difference:
+                maximum = mes[j]
+                break
+
+        summ = 0
+        for i in range(len(self.measurements)):
+            if self.measurements[i] == maximum:
+                summ += self.pos_mes[i]
+        encoder_pos = summ // len(self.pos_mes)
+        y = (minimum + maximum) // 2
+        return encoder_pos, y
+
+    def impulses_in_circulation(self, filepath):
+        try:
+            with open(filepath, 'r') as file:
+                for line in file:
+                    if "Number of pulses per revolution" in line:
+                        oborot = int(line.split(":")[-1])
+                        return oborot
+
+        except:
+            print("Файл не найден")
+            return 20000
+

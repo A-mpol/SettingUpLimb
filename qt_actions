@@ -1,0 +1,184 @@
+import sys
+
+from PyQt6 import QtWidgets, QtCore
+from PyQt6.QtWidgets import QLabel
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QImage, QPixmap
+
+import CheckFile
+import WorkingFile
+
+from DocStand import Stand
+
+import cv2
+
+import matplotlib.pyplot as plt
+
+import time
+
+
+class WorkingWindow(QtWidgets.QMainWindow, WorkingFile.Ui_MainWindow):
+    def __init__(self, stand):
+        super().__init__()
+
+        self.setupUi(self)  # Это нужно для инициализации нашего дизайна
+
+        self.stand = stand
+
+        self.limb_is_centered = False
+
+        self.cur_image = QLabel(self)
+        self.cur_image.setGeometry(10, 120, 1100, 550)
+
+        self.timer_cur_coord = QTimer(self)
+        self.timer_cur_coord.timeout.connect(self.update_coordinate)
+        self.timer_cur_coord.start(200)
+
+        self.timer_in_pos = QTimer(self)
+        self.timer_in_pos.timeout.connect(self.update_status)
+        self.timer_in_pos.start(200)
+
+        self.timer_get_image = QTimer(self)
+        self.timer_get_image.timeout.connect(self.update_image)
+        self.timer_get_image.start(100)
+
+        self.button_start_stop.clicked.connect(self.start_stop)
+        self.button_setting_up.clicked.connect(self.setting_up)
+
+        self.y = None
+
+    def update_coordinate(self):
+        self.lcdNumber_cur_coordinate.display(str(self.stand.current_engine_position()))
+
+    def start_stop(self):
+        if self.button_start_stop.text() == 'ВКЛЮЧИТЬ':
+            self.stand.engine_rotation_start()
+            self.button_start_stop.setText('ВЫКЛЮЧИТЬ')
+            self.button_start_stop.setStyleSheet("font: 22pt \"Bahnschrift Condensed\";")
+        else:
+            self.stand.engine_rotation_stop()
+            self.button_start_stop.setText('ВКЛЮЧИТЬ')
+            self.button_start_stop.setStyleSheet("font: 22pt \"Bahnschrift Condensed\";")
+
+    def update_status(self):
+        if self.stand.servo_motor.in_position:
+            self.label_coord_ready.setText("Датчик в позиции")
+            self.label_coord_ready.setStyleSheet("font: 20pt \"Bahnschrift Condensed\";")
+        else:
+            self.label_coord_ready.setText("Датчик вышел из позиции")
+            self.label_coord_ready.setStyleSheet("font: 20pt \"Bahnschrift Condensed\";")
+
+    def update_image(self):
+        frame = self.stand.get_image_from_video()
+        if len(frame) != 0:
+            self.stand.get_center_circle_coordinate()
+            frame = self.stand.deviation_display(self.stand.measurements[-1], (0, 255, 255), frame)
+            if self.y != None:
+                frame = self.stand.deviation_display(self.y, (255, 0, 255), frame)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = frame_rgb.shape
+            img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
+            pixmap = QPixmap.fromImage(img)
+            self.cur_image.setPixmap(pixmap)
+            cv2.waitKey(0)
+            self.cur_image.setScaledContents(True)
+
+    def setting_up(self):
+        if self.button_setting_up.text() == 'ОТЦЕНТРОВАТЬ ЛИМБ':
+            self.y = None
+            self.button_setting_up.setText('ВЫЙТИ В МАКСИМУМ')
+            self.timer_get_image.stop()
+            self.stand.setting_drive_to_positive_extreme(0)
+            while not self.stand.servo_motor.in_position:
+                self.update_coordinate()
+            self.stand.measurements = []
+            self.stand.pos_mes = []
+            self.stand.setting_drive_to_positive_extreme(self.stand.impulses)
+            while not self.stand.servo_motor.in_position:
+                self.update_image()
+                self.update_coordinate()
+
+            plt.plot(self.stand.pos_mes, self.stand.measurements)
+            plt.xlabel('Позиция')
+            plt.ylabel('Координата')
+            plt.title('График значений Y относительно позиции')
+            plt.show()
+
+            self.timer_get_image.start(100)
+        else:
+            self.button_setting_up.setText('ОТЦЕНТРОВАТЬ ЛИМБ')
+            pos, self.y = self.stand.coordinate_processing()
+            self.label_max_pose.setText("Максимум: " + str(pos))
+            self.stand.setting_drive_to_positive_extreme(pos)
+            self.button_setting_up.setEnabled(False)
+            while not self.stand.servo_motor.in_position:
+                self.update_image()
+                self.update_coordinate()
+            self.button_setting_up.setEnabled(True)
+
+
+class CheckWindow(QtWidgets.QMainWindow, CheckFile.Ui_MainWindow):
+    def __init__(self, stand):
+        super().__init__()
+
+        self.setupUi(self)
+
+        self.stand = stand
+
+        self.check_device()
+
+        self.pushButton.clicked.connect(self.open_working_window)
+
+        self.working_window = None
+
+    def check_device(self):
+        _translate = QtCore.QCoreApplication.translate
+        if not self.stand.servo_motor.connection():
+            error_device = True
+            self.label_ok_driver.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" "
+                                                                  "font-size:14pt; font-weight:700; color:red;\">не "
+                                                                  "подключен</span></p></body></html>"))
+        else:
+            error_device = False
+            self.label_ok_driver.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" "
+                                                                  "font-size:14pt; font-weight:700; color:#428300;\">"
+                                                                  "подключен</span></p></body></html>"))
+
+        success, image = self.stand.video.read()
+
+        if not success:
+            error_device = True
+            self.label_ok_camera.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" "
+                                                                  "font-size:14pt; font-weight:700; color:red;\">не "
+                                                                  "подключена</span></p></body></html>"))
+        else:
+            self.label_ok_camera.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" "
+                                                                  "font-size:14pt; font-weight:700; color:#428300;\">"
+                                                                  "подключена</span></p></body></html>"))
+
+        if error_device:
+            self.pushButton.setText("Повторная проверка")
+            self.pushButton.setStyleSheet("font: 700 12pt \"Segoe UI\";")
+        else:
+            self.pushButton.setText("Начать измерения")
+            self.pushButton.setStyleSheet("font: 700 12pt \"Segoe UI\";")
+
+    def open_working_window(self):
+        if self.pushButton.text() == "Повторная проверка":
+            self.check_device()
+        else:
+            self.working_window = WorkingWindow(self.stand)
+            self.close()
+            self.working_window.show()
+
+
+def main():
+    stand = Stand("Video2.mp4")
+    app = QtWidgets.QApplication(sys.argv)
+    window = CheckWindow(stand)
+    window.show()
+    app.exec()
+
+
+if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем
+    main()
