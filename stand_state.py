@@ -260,10 +260,15 @@ class Stand:
         font = cv2.FONT_HERSHEY_COMPLEX
         font_scale = 1
         font_thickness = 2
-        cropped_image = image[self.top_border[1]:self.lower_border[1], self.top_border[0]: self.lower_border[0]]
+        if self.state == "обработка" or self.state == "настройка лимба":
+            cropped_image = image[self.y_min - 3:self.y_max + 3, self.top_border[0]: self.lower_border[0]]
+        else:
+            cropped_image = image[self.top_border[1]:self.lower_border[1], self.top_border[0]: self.lower_border[0]]
         height, width = cropped_image.shape[:2]
         screen_width, screen_height = pyautogui.size()
-        resized_image = cv2.resize(cropped_image, None, fx=(screen_width // width), fy=(screen_height // height), interpolation=cv2.INTER_LINEAR)
+        print(height, width, screen_width, screen_height)
+        resized_image = cv2.resize(cropped_image, None, fx=(screen_width // width), fy=(screen_height // height),
+                                   interpolation=cv2.INTER_LINEAR)
         cv2.putText(resized_image, self.state, (10, 25), font, font_scale, (255, 0, 0), font_thickness, cv2.LINE_AA)
         cv2.putText(resized_image, position, (resized_image.shape[1] - 200, 25), font, font_scale, (255, 0, 0),
                     font_thickness, cv2.LINE_AA)
